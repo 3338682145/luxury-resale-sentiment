@@ -1,0 +1,26 @@
+# 凭据与登录态
+cookies.json
+cookies*.bak.*
+*.cookie
+browser_data/
+.xiaohongshu/
+
+# 环境
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.idea/
+.vscode/
+
+# 运行产物
+logs/
+*.log
+data/raw/
+data/xhs/
+
+# 大文件
+*.zip
+*.tar.gz
