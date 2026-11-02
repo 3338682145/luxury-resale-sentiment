@@ -176,6 +176,15 @@ def load_src(src, only_pending=False):
                     url = tk[nid]
                 out.append({"note_id": nid, "url": url,
                             "module": r.get("平台", ""), "token_filled": filled})
+    elif src == "pend":
+        # 待采清单：建议优先级 高>中>低，已排除 3C（标记「不做」）
+        path = os.path.join(ROOT, "outputs/待采清单.csv")
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            for r in csv.DictReader(f):
+                if r.get("建议优先级") == "不做":
+                    continue
+                out.append({"note_id": r["笔记ID"], "url": r["链接"], "module": r["模块"],
+                            "sug": r.get("建议优先级", ""), "cat": r.get("标题品类", "")})
     else:
         path = os.path.join(ROOT, "outputs/候选链接清单_944.csv")
         with open(path, encoding="utf-8-sig", newline="") as f:
@@ -206,15 +215,22 @@ def done_ids():
 # ---------------------------------------------------------------- 主流程
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", choices=["case", "cand"], default="cand")
+    ap.add_argument("--src", choices=["case", "cand", "pend"], default="cand",
+                    help="pend = 读 outputs/待采清单.csv（已按建议优先级排序、已排除 3C）")
     ap.add_argument("--limit", type=int, default=20)
     ap.add_argument("--interval", type=float, default=1.5)
     ap.add_argument("--only-pending", action="store_true")
     ap.add_argument("--max-empty", type=int, default=3,
                     help="连续 N 条取不到内容即熔断（风控降级时尽快停手）")
+    ap.add_argument("--module", default="", help="只跑某模块，如 P0-A-爱回收")
+    ap.add_argument("--sug", default="", help="只跑某建议优先级：高 / 中 / 低")
     args = ap.parse_args()
 
     rows = load_src(args.src, args.only_pending)
+    if args.module:
+        rows = [r for r in rows if args.module in (r.get("module") or "")]
+    if args.sug:
+        rows = [r for r in rows if r.get("sug") == args.sug]
     seen = done_ids()
     todo = [r for r in rows if (nid_of(r["url"]) or r["note_id"]) not in seen][:args.limit]
     print("待采 %d 条（总计 %d，已完成 %d）" % (len(todo), len(rows), len(seen)))
