@@ -24,3 +24,9 @@ data/xhs/
 # 大文件
 *.zip
 *.tar.gz
+
+# 采集运行时产物（含大量风控降级壳页记录，不入库）
+data/guest/notes_guest.jsonl
+data/guest/*.blocked.jsonl
+data/guest/*.round1.jsonl
+data/guest/run_log.json

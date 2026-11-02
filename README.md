@@ -102,6 +102,21 @@
 **三、关键词匹配无法判断「谁在批评谁」。**
 第一版规则准确率只有 37%，典型误判是「爱回收值耀垃圾平台」实为闲鱼纠纷、红布林案例因文中提了一句「转转」被归到转转。改成**以标题的投诉主体为准**并加入竞品排除、否定式识别、软文识别后，A/C 级准确率升至 92.7%。
 
+**四、免 Cookie 补采：换 iPhone UA 打 SSR，但会软封。**
+登录态之外留了一条纯游客通道，用于补采与抽查（`collector/run_xhs_guest.py`）：
+
+| 请求形态 | 结果 |
+|---|---|
+| 桌面 UA 访问 `/explore/<id>?xsec_token=` | 302 → `/login` |
+| headless Chrome 全新 profile（纯游客） | 落在登录页 |
+| iPhone UA + `curl --noproxy '*' -L` + 带 token | 200，SSR 里 `__INITIAL_STATE__.note.noteDetailMap` 含标题/正文全文/作者/图片/互动数，评论走 `v2/comment/page` |
+
+关键点：
+- **必须带 `xsec_token`**。缺 token 的链接（案例库 217 条里曾有 37 条）返回「当前内容仅支持在小红书 APP 内查看」，与「笔记已删」是同一个壳页，不能混淆。采集器会按 `note_id` 从候选清单回填 token。
+- **限流是累计指纹级的**。连发 50–60 条后全局降级，连此前成功过的笔记也一起变壳页；补匿名 cookie、换出口 IP、换 headless Chrome 均无效，12 分钟未恢复。降级是间歇的，长跑里偶有单条仍能成功。
+- 因此采集器内置熔断：`--max-empty 3` 连续三条取不到即停。建议单轮 ≤40 条、间隔 ≥3s、拆多轮。
+- 数据一致性已验证：与登录态采集结果比对 20 条，正文前缀 20/20 一致，互动数 12 条完全相等、8 条差 1–5（快照时间差）。
+
 ---
 
 ## 快速开始
@@ -122,6 +137,19 @@ python3 pipeline/finalize.py
 ```
 
 清洗与抽检纯本地运行，不依赖网络。数据源路径在 `clean_cases.py` 顶部配置。
+
+**免 Cookie 通道（补采/抽查，无需登录）**
+
+```bash
+# 抽查或补采详情；无 cookie、无 MediaCrawler
+python3 collector/run_xhs_guest.py --src cand --limit 40 --interval 3 --max-empty 3
+
+# 结果：data/guest/notes_guest.jsonl（全部记录，含 no_token/app_only/deleted 状态）
+#       data/guest/comments_guest.jsonl（首屏评论）
+# 本次留存的有效样本：data/guest/notes_guest.clean.jsonl（21 条全字段）
+```
+
+`--src case|cand` 分别对应案例库 217 条与候选清单。已采 `note_id` 自动跳过，可断点续跑。
 
 ---
 
