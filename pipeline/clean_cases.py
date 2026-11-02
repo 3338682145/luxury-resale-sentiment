@@ -216,7 +216,11 @@ def load_new():
                     "tags": d.get("tag_list") or "",
                     "type": d.get("type"),
                     "src": "new",
+                    # NOTE(local patch): 补回图片，image_list 为逗号分隔的 URL 串
+                    "images": [u.strip() for u in (d.get("image_list") or "").split(",") if u.strip()],
+                    "video_url": d.get("video_url") or "",
                 })
+                rows[-1]["image_count"] = len(rows[-1]["images"])
     return rows
 
 
@@ -247,6 +251,10 @@ def load_old_cases():
                 "tags": "",
                 "type": "",
                 "src": "old",
+                # NOTE(local patch): 旧管线 images 本身就是 URL 列表
+                "images": d.get("images") or [],
+                "image_count": len(d.get("images") or []),
+                "video_url": "",
             })
     return rows
 
@@ -271,6 +279,8 @@ def load_comments():
                 buf.setdefault(nid, []).append({
                     "content": c,
                     "like": parse_num(d.get("like_count")),
+                    # NOTE(local patch): 评论配图，pictures 为逗号分隔的 URL 串
+                    "pictures": [u.strip() for u in (d.get("pictures") or "").split(",") if u.strip()],
                 })
     for nid in buf:
         buf[nid].sort(key=lambda x: -x["like"])
